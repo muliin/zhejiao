@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+
+# 运行时产物
+卡片/
+记忆*.json
+
+# 本地私用 / 旧打包
+_资料/
+*.zip
+*.webp
+.box-agent*/
+.box-agent-scratch/
+
+# 截图 / 素材
+*.png
+*.webp
+
+# 临时脚本
+_*.py

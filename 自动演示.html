@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>折角 · 自动演示</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root{
+    --bg:#141318; --bg2:#1c1a22; --text:#d8d2c6; --muted:#7e7870;
+    --accent:#c7b393; --accent2:#868092;
+    --card:rgba(255,255,255,.04); --card-solid:#15151b;
+    --line:rgba(255,255,255,.09);
+    --compare-bg:rgba(14,13,18,.9);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden}
+  body{
+    background:
+      radial-gradient(ellipse 120% 80% at 50% -10%, #221d2b 0%, transparent 60%),
+      linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);
+    color:var(--text);
+    font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* 墨点背景 */
+  #stars{position:fixed;inset:0;pointer-events:none;opacity:.55}
+  .star{position:absolute;width:2px;height:2px;background:rgba(255,255,255,.5);border-radius:50%}
+  #vignette{position:fixed;inset:0;pointer-events:none;z-index:90;
+    background:radial-gradient(ellipse at 50% 42%, transparent 55%, rgba(0,0,0,.55) 100%)}
+
+  /* 顶栏 */
+  header{
+    position:fixed;top:0;left:0;right:0;height:56px;z-index:30;
+    display:flex;align-items:center;padding:0 26px;
+    border-bottom:1px solid var(--line);background:rgba(16,15,20,.55);
+    backdrop-filter:blur(8px);
+  }
+  .logo{font-size:15px;letter-spacing:3px}
+  .logo b{font-weight:400;font-size:11px;color:var(--muted);letter-spacing:1px;margin-left:8px}
+
+  /* 舞台 + 卡片区：排成一条垂直流，不再各自 fixed 定位。
+     之前两块都用 fixed + 各自的 top/bottom，内容一长就互相压上去。 */
+  #flow{
+    position:fixed;left:0;right:0;top:56px;bottom:calc(5vh + 92px);
+    z-index:12;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:22px;padding:14px 20px;overflow:hidden;
+  }
+  #object{
+    flex:0 0 auto;max-width:min(92vw,520px);padding:20px 28px;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    transition:opacity .8s, transform .8s;
+  }
+  #object.empty{opacity:.5}
+  #object .who{font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:8px}
+  #object .txt{font-size:19px;line-height:1.85;min-height:1.85em}
+  #object.empty .txt{color:var(--muted);font-size:17px}
+  .caret{display:inline-block;width:2px;height:1.1em;background:var(--accent);
+    vertical-align:-0.18em;margin-left:2px;animation:blink 1s step-end infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* 中部卡片区 */
+  #cards{flex:0 1 auto;width:min(92vw,640px);min-height:0;display:flex;
+    flex-direction:column;overflow:hidden}
+
+  /* 刻度 */
+  #scale{display:none;align-items:center;justify-content:center;margin:0 auto 16px}
+  #scale.on{display:flex}
+  .tick{display:flex;flex-direction:column;align-items:center;gap:7px;
+    padding:4px 14px;position:relative}
+  .tick .dot{width:7px;height:7px;border-radius:50%;
+    border:1px solid var(--line);background:transparent;transition:.45s}
+  .tick.been .dot{border-color:var(--accent2);background:var(--accent2);opacity:.6}
+  .tick.now .dot{border-color:var(--accent);background:var(--accent);opacity:1;
+    box-shadow:0 0 0 4px rgba(199,179,147,.18)}
+  .tick .tn{font-size:11px;letter-spacing:.5px;color:var(--muted);opacity:.5;transition:.45s;white-space:nowrap}
+  .tick.been .tn{opacity:.85}
+  .tick.now .tn{color:var(--accent);opacity:1}
+  .tick::before,.tick::after{content:'';position:absolute;top:11px;height:1px;
+    background:var(--line);opacity:.45;width:50%}
+  .tick::before{left:0}
+  .tick::after{right:0}
+  .tick:first-child::before,.tick:last-child::after{display:none}
+  #cmp-open{margin-left:16px;font-size:11px;color:var(--muted);opacity:.55;
+    letter-spacing:.5px;white-space:nowrap;transition:.3s}
+  #cmp-open.hl{opacity:1;color:var(--accent)}
+
+  /* 画面卡 */
+  .reframe{
+    background:var(--card-solid);border:1px solid var(--line);border-radius:12px;
+    padding:18px 22px;margin-bottom:14px;font-size:15px;line-height:1.95;
+    opacity:0;transform:translateY(10px);transition:.7s;white-space:pre-line;
+    flex:0 1 auto;min-height:0;overflow:hidden;
+  }
+  .reframe.show{opacity:1;transform:none}
+  .reframe .tag{font-size:10px;letter-spacing:2px;color:var(--accent2);margin-bottom:8px}
+
+  /* 名字卡 */
+  .names{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .nameCard{
+    padding:13px 20px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card);font-size:15px;
+    opacity:0;transform:translateY(14px);transition:.5s;
+  }
+  .nameCard.show{opacity:1;transform:none}
+  .nameCard.picked{border-color:var(--accent);background:rgba(199,179,147,.1);color:var(--accent)}
+
+  /* 输入条 */
+  #input{
+    position:fixed;left:50%;bottom:5vh;transform:translateX(-50%);
+    display:flex;gap:10px;z-index:16;width:min(92vw,760px);
+  }
+  #fakeInput{
+    flex:1;background:var(--card-solid);border:1px solid var(--line);border-radius:14px;
+    padding:18px 22px;font-size:17px;line-height:1.5;min-height:60px;
+    color:var(--text);transition:border-color .3s;
+  }
+  #fakeInput.focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(134,128,146,.12)}
+  #fakeInput .ph{color:var(--muted);opacity:.6}
+  .btn{
+    border:none;border-radius:14px;padding:0 26px;font-size:16px;font-weight:600;
+    background:var(--accent);color:var(--bg);display:flex;align-items:center;
+    transition:.25s;
+  }
+  .btn.ghost{
+    background:transparent;color:var(--muted);border:1px solid var(--line);
+    font-weight:400;position:relative;overflow:hidden;
+  }
+  .btn.ghost .fill{position:absolute;left:0;top:0;bottom:0;width:0%;
+    background:var(--accent);opacity:.25}
+  .btn.ghost .lb{position:relative}
+  .hint{position:fixed;bottom:calc(5vh + 82px);left:50%;transform:translateX(-50%);
+    font-size:11px;color:var(--muted);letter-spacing:1px;z-index:17}
+
+  /* 已合上 */
+  #sealed{
+    position:fixed;left:50%;bottom:5vh;transform:translateX(-50%);
+    width:min(90vw,560px);text-align:center;padding:19px 16px;border-radius:14px;
+    border:1px dashed var(--line);color:var(--muted);font-size:14px;
+    letter-spacing:1px;z-index:16;display:none;
+  }
+
+  /* 对照层 */
+  #compare{
+    position:fixed;inset:0;z-index:40;display:none;
+    align-items:center;justify-content:center;
+    background:var(--compare-bg);backdrop-filter:blur(10px);
+  }
+  #compare.on{display:flex}
+  .cmp-box{width:min(92vw,660px);padding:4px}
+  .cmp-row{display:flex;gap:18px;align-items:baseline;padding:16px 4px;
+    border-bottom:1px solid var(--line);opacity:0;transform:translateY(10px);transition:.55s}
+  .cmp-row.show{opacity:1;transform:none}
+  .cmp-row:last-of-type{border-bottom:none}
+  .cmp-row .cl{flex:0 0 76px;text-align:right;font-size:12px;color:var(--accent2);letter-spacing:.5px}
+  .cmp-row .cp{flex:1;font-size:15px;line-height:1.8}
+  .cmp-row.un .cp{color:var(--muted);opacity:.38}
+  .cmp-tip{text-align:center;font-size:11px;color:var(--muted);margin-top:20px;letter-spacing:1px}
+
+  /* 字幕条 */
+  /* 字幕出现时，背后的内容整体虚化并压暗，让字幕浮在上层 ——
+     这样不必靠移位躲开重叠，画面层次也更像"镜头对焦"。 */
+  #blurwrap{
+    transition:filter .6s ease, opacity .6s ease, transform .6s ease;
+  }
+  body.focusing #blurwrap{
+    filter:blur(7px) brightness(.45);
+    transform:scale(.985);
+  }
+  #subveil{
+    position:fixed;inset:0;z-index:55;pointer-events:none;
+    background:radial-gradient(ellipse 120% 70% at 50% 72%, rgba(10,9,13,.82) 0%, rgba(10,9,13,.5) 55%, transparent 100%);
+    opacity:0;transition:opacity .6s;
+  }
+  body.focusing #subveil{opacity:1}
+  /* 字幕期间把底部输入条和提示藏掉，避免它们的文字从遮罩下面透出来 */
+  #input, .hint{transition:opacity .35s}
+  body.focusing #input, body.focusing .hint{opacity:0}
+  #sub{
+    position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.98);
+    z-index:60;max-width:min(88vw,820px);text-align:center;
+    font-size:clamp(20px,2.3vw,30px);line-height:1.85;color:#fff;letter-spacing:1px;
+    opacity:0;transition:opacity .55s, transform .55s;pointer-events:none;
+  }
+  #sub.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  #sub .em{color:var(--accent)}
+
+  /* 标题幕 */
+  #title{
+    position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:26px;
+    background:var(--bg);transition:opacity 1s;
+  }
+  #title.gone{opacity:0;pointer-events:none}
+  #title .t1{font-size:62px;letter-spacing:22px;text-indent:22px}
+  #title .t2{font-size:16px;color:var(--muted);letter-spacing:4px}
+
+  /* 结尾幕 */
+  #outro{
+    position:fixed;inset:0;z-index:85;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:22px;
+    background:var(--bg);opacity:0;pointer-events:none;transition:opacity 1.1s;
+  }
+  #outro.on{opacity:1}
+  #outro .o1{font-size:44px;letter-spacing:16px;text-indent:16px}
+  #outro .o2{font-size:15px;color:var(--muted);letter-spacing:3px;line-height:2.4;text-align:center}
+  #outro .o3{font-size:17px;color:var(--accent);letter-spacing:4px;margin-top:8px}
+
+  /* 控制条（录制时按 H 隐藏） */
+  #ctl{
+    position:fixed;right:16px;bottom:16px;z-index:100;display:flex;gap:8px;
+    font-size:12px;color:var(--muted);align-items:center;
+  }
+  #ctl button{
+    background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:7px 13px;font-size:12px;cursor:pointer;
+  }
+  #ctl.hide{display:none}
+  #badge{
+    position:fixed;left:16px;bottom:16px;z-index:100;font-size:11px;
+    color:var(--muted);opacity:.5;letter-spacing:1px;
+  }
+  #badge.hide{display:none}
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<header><div class="logo">折角 <b>· 一句话折个角</b></div></header>
+
+<div id="blurwrap">
+<div id="flow">
+  <div id="object" class="empty">
+    <div class="who">你刚刚说的</div>
+    <div class="txt" id="objtxt">说一句此刻压着你的话</div>
+  </div>
+
+  <div id="cards">
+    <div id="scale"></div>
+    <div class="reframe" id="reframe"><div class="tag">机器</div><div id="rbody"></div></div>
+    <div class="names" id="names"></div>
+  </div>
+</div>
+
+<div id="input">
+  <div id="fakeInput"><span class="ph">（在这儿说）</span></div>
+  <button class="btn" id="goBtn">推开</button>
+  <button class="btn ghost" id="sealBtn"><span class="fill" id="sealFill"></span><span class="lb">合上</span></button>
+</div>
+<div class="hint">说完就忘 · 点一张名字卡，把它安放回去</div>
+<div id="sealed">这张卡片已合上 · 11月3日</div>
+</div>
+
+<div id="subveil"></div>
+
+<div id="compare"><div class="cmp-box" id="cmpBox"></div></div>
+
+<div id="sub"></div>
+
+<div id="title">
+  <div class="t1">折　角</div>
+  <div class="t2">它不讨好你 · 它只把你的话折一个角</div>
+</div>
+
+<div id="outro">
+  <div class="o1">折　角</div>
+  <div class="o2">不讨好 · 不站队 · 不分析<br>不替你命名 · 也不记得你</div>
+  <div class="o3">名字，你自己起</div>
+</div>
+
+<div id="vignette"></div>
+
+<div id="badge">按 H 隐藏控制条 · 空格暂停 · R 重播</div>
+<div id="ctl">
+  <span id="clock">0:00</span>
+  <button id="replay">重播</button>
+  <button id="hideBtn">隐藏(H)</button>
+</div>
+
+<script>
+/* ============================================================
+   折角 · 自动演示
+   所有文本都是产品真实生成的输出，不是为演示编的。
+   节奏写死在时间轴里：零等待、零操作痕迹、每次播放完全一致。
+   录制：打开 → 按 H 隐藏控制条 → OBS 录制 → 播完即停，无需剪辑。
+   ============================================================ */
+
+const LENS = ['mirror','stranger','culture','history','cosmic'];
+const LENS_NAMES = ['镜子','异乡客','彼岸','多年以后','高处'];
+
+// —— 真实素材 ——
+const SAY = '我和最好的朋友闹掰了，我总觉得是我太敏感、太作。';
+
+const SCENE_STRANGER = `你会觉得自己“太敏感、太作”，不是因为你真的做错了什么，而是这段关系一断，你习惯性地先把账算到自己头上。
+
+有一趟只在夜里绕城的末班车，上车不用买票，只报一件你反复想过的小事，报得越细，司机越会点头。车尾那排座位写着“太作”，坐上去的人不会被赶下车，反而会被送到“你其实很在乎”那一站。
+
+你以为是带了一件叫“太作”的错处，到了这儿才发现，那只是当地人用来辨认“谁真的在乎”的记号。`;
+
+const NAMES_STRANGER = ['先认领的那个错','替这段关系守夜的人','把在乎说成太作的那个'];
+
+const SCENE_HISTORY = `你把“太作”这件事反复拿出来掂量，说明你在意的从来不是谁对谁错，而是这段关系在你心里还有多重。
+
+十年后的你站在一条长街的尽头往回看，街两边的铺子都开过又关了，招牌换过好几轮。街心摆着一张旧课桌，桌面上摆着一样东西：一小截粉笔头，旁边还有一把尺子。在这条街上，尺子量不出“太作”有多长，每一段被量过的往事走两步就缩成一个点。
+
+到那时候你才会明白，一段闹掰的关系放在十年里，只是地图上一个被走过的点，不是你要背一辈子的罪名。`;
+
+const NAMES_HISTORY = ['还在拿尺子量自己','把闹掰揣成罪名的人','那截不肯写完的粉笔'];
+
+const POINTS = {
+  stranger: '你以为是带了一件叫“太作”的错处，到了这儿才发现，那只是当地人用来辨认“谁真的在乎”的记号。',
+  history:  '到那时候你才会明白，一段闹掰的关系放在十年里，只是地图上一个被走过的点，不是你要背一辈子的罪名。'
+};
+
+// —— DOM ——
+const $ = id => document.getElementById(id);
+const objEl=$('object'), objtxt=$('objtxt'), fakeInput=$('fakeInput');
+const scaleEl=$('scale'), reframe=$('reframe'), rbody=$('rbody'), namesEl=$('names');
+const subEl=$('sub'), cmpEl=$('compare'), cmpBox=$('cmpBox');
+const sealBtn=$('sealBtn'), sealFill=$('sealFill'), sealedEl=$('sealed'), inputEl=$('input');
+const titleEl=$('title'), outroEl=$('outro'), hintEl=document.querySelector('.hint');
+
+// 墨点
+(function(){
+  const box=$('stars');
+  for(let i=0;i<80;i++){
+    const s=document.createElement('div');
+    s.className='star';
+    s.style.cssText=`opacity:${.15+Math.random()*.45};left:${Math.random()*100}%;top:${Math.random()*100}%`;
+    box.appendChild(s);
+  }
+})();
+
+// —— 播放控制：可暂停的 sleep ——
+let paused=false, cancelled=false;
+let GEN=0, RUNNING=false;
+// 用 setTimeout 分片而不是 rAF：浏览器会对非活动标签节流 rAF，
+// 导致整段时长失准（实测会缩到一半以下）。这里累加"实际未暂停的时间"。
+const wait = ms => new Promise(res=>{
+  let acc=0, last=performance.now();
+  (function step(){
+    if(cancelled) return res('cancel');
+    const now=performance.now();
+    if(!paused) acc += now-last;
+    last=now;
+    if(acc>=ms) return res();
+    setTimeout(step, Math.min(50, Math.max(10, ms-acc)));
+  })();
+});
+
+let USED=[], CUR=-1;
+
+function renderScale(highlight){
+  scaleEl.innerHTML='';
+  scaleEl.classList.add('on');
+  LENS.forEach((id,i)=>{
+    const t=document.createElement('div');
+    const been=USED.includes(id);
+    t.className='tick'+(been?' been':'')+(i===CUR?' now':'');
+    t.innerHTML=`<span class="dot"></span><span class="tn">${LENS_NAMES[i]}</span>`;
+    scaleEl.appendChild(t);
+  });
+  const left=LENS.filter(l=>!USED.includes(l)).length;
+  const b=document.createElement('div');
+  b.id='cmp-open';
+  b.textContent = left ? `看对照 · 还剩 ${left}` : '看对照 · 五个都去过了';
+  if(highlight) b.classList.add('hl');
+  scaleEl.appendChild(b);
+}
+
+// 逐字打字
+async function typeInto(el, text, speed){
+  el.textContent='';
+  const caret=document.createElement('span');
+  caret.className='caret';
+  el.appendChild(caret);
+  for(const ch of text){
+    if(cancelled) return;
+    caret.insertAdjacentText('beforebegin', ch);
+    await wait(speed);
+  }
+  caret.remove();
+}
+
+// 流式吐字（画面）
+async function streamInto(el, text, speed){
+  el.textContent='';
+  let i=0;
+  for(const ch of text){
+    if(cancelled) return;
+    el.textContent += ch;
+    i++;
+    // 标点处稍停，像真的在想
+    if('，。；：—'.includes(ch)) await wait(speed*3);
+    else if(ch==='\n') await wait(speed*6);
+    else await wait(speed);
+  }
+}
+
+async function showSub(html, hold, settle=420){
+  subEl.innerHTML=html;
+  // 虚化背后的内容，让字幕独占焦点
+  document.body.classList.add('focusing');
+  await wait(620);           // 等模糊走完（过渡 600ms），再让字出现
+  subEl.classList.add('show');
+  await wait(hold);
+  subEl.classList.remove('show');
+  await wait(620);           // 等字幕完全淡出（过渡 550ms），再撤模糊
+  document.body.classList.remove('focusing');
+  await wait(settle);        // settle=0 时，下一拍紧贴着"变清晰"发生
+}
+
+/* 连续几句字幕：中间不撤模糊、不露出产品界面，只换字 */
+async function showSubs(items){
+  document.body.classList.add('focusing');
+  await wait(620);
+  for(const it of items){
+    subEl.innerHTML = it.html;
+    subEl.classList.add('show');
+    await wait(it.hold);
+    subEl.classList.remove('show');
+    await wait(480);          // 上一句淡出后再换下一句
+  }
+  await wait(620);
+  document.body.classList.remove('focusing');
+  await wait(420);
+}
+
+function showNames(list){
+  namesEl.innerHTML='';
+  list.forEach((n,i)=>{
+    const d=document.createElement('div');
+    d.className='nameCard';
+    d.textContent=n;
+    namesEl.appendChild(d);
+    setTimeout(()=>d.classList.add('show'), 120+i*160);
+  });
+}
+
+async function openCompare(){
+  cmpBox.innerHTML='';
+  LENS.forEach((id,i)=>{
+    const p=POINTS[id];
+    const row=document.createElement('div');
+    row.className='cmp-row'+(p?'':' un');
+    row.innerHTML=`<div class="cl">${LENS_NAMES[i]}</div><div class="cp">${p||'还没去过'}</div>`;
+    cmpBox.appendChild(row);
+    setTimeout(()=>row.classList.add('show'), 120+i*180);
+  });
+  const tip=document.createElement('div');
+  tip.className='cmp-tip';
+  tip.textContent='还有 3 个位置可以去';
+  cmpBox.appendChild(tip);
+  cmpEl.classList.add('on');
+}
+
+function reset(){
+  USED=[]; CUR=-1;
+  document.body.classList.remove('focusing');
+  objEl.classList.add('empty');
+  objtxt.textContent='说一句此刻压着你的话';
+  fakeInput.innerHTML='<span class="ph">（在这儿说）</span>';
+  fakeInput.classList.remove('focus');
+  scaleEl.classList.remove('on'); scaleEl.innerHTML='';
+  reframe.classList.remove('show'); rbody.textContent='';
+  document.querySelector('#reframe .tag').textContent='机器';
+  namesEl.innerHTML='';
+  cmpEl.classList.remove('on');
+  subEl.classList.remove('show');
+  sealFill.style.width='0%';
+  sealedEl.style.display='none';
+  inputEl.style.display='flex';
+  hintEl.style.display='block';
+  titleEl.classList.remove('gone');
+  outroEl.classList.remove('on');
+}
+
+/* ============================================================
+   时间轴  ——  总长约 2 分 50 秒
+   0:00  标题幕
+   0:12  打字 → 推开
+   0:22  异乡客：三段式流式
+   1:12  定格讲"一跳"
+   1:40  递词 → 选名
+   1:58  切"多年以后"：不同的结论
+   2:22  看对照：五个位置并排
+   2:36  按住合上
+   2:46  结尾幕
+   ============================================================ */
+async function play(gen){
+  RUNNING=true;
+  const alive=()=>!cancelled && gen===GEN;
+  reset();
+  await wait(300);
+  if(!alive()){ RUNNING=false; return; }
+
+  // —— 0:00 标题幕 ——
+  await wait(3400);
+  titleEl.classList.add('gone');
+  await wait(1600);
+  if(!alive()){ RUNNING=false; return; }
+
+  await showSubs([
+    { html:'市面上的情绪 AI 都在安慰你。', hold:3400 },
+    { html:'折角不安慰 —— 它只把你的话<span class="em">折一个角</span>，<br>然后让你自己起名字。', hold:4600 },
+  ]);
+  if(!alive()){ RUNNING=false; return; }
+
+  // —— 打字 ——
+  fakeInput.classList.add('focus');
+  await wait(600);
+  fakeInput.innerHTML='';
+  await typeInto(fakeInput, SAY, 135);
+  await wait(1300);
+
+  // 推开
+  $('goBtn').style.transform='scale(.94)';
+  await wait(150);
+  $('goBtn').style.transform='';
+  objEl.classList.remove('empty');
+  objtxt.textContent=SAY;
+  fakeInput.innerHTML='<span class="ph">（在这儿说）</span>';
+  fakeInput.classList.remove('focus');
+  await wait(1100);
+
+  // —— 异乡客 ——
+  if(!alive()){ RUNNING=false; return; }
+  CUR=1; USED=['stranger'];
+  document.querySelector('#reframe .tag').textContent='机器 · 换位置（异乡客）';
+  reframe.classList.add('show');
+  await showSub('① 先接住 &nbsp;② 换个位置画一幅 &nbsp;③ 点题', 3600);
+  await streamInto(rbody, SCENE_STRANGER, 38);
+  renderScale(false);
+  await wait(2600);
+
+  // —— 讲"一跳" ——
+  await showSubs([
+    { html:'这趟末班车让你报一件<span class="em">"太作"</span>的小事，<br>还把你送到<span class="em">"你其实很在乎"</span>那一站。', hold:5000 },
+    { html:'现实中不可能，但逻辑通顺。<br><span class="em">没有这一跳，就只是给细节加滤镜。</span>', hold:5400 },
+  ]);
+
+  // —— 递词 ——
+  // 字幕消失、画面变清晰的同时，名字一张张递出来（settle=0 让两拍贴住，不空等）
+  await showSub('它递名字，但不替你命名。', 3400, 0);
+  showNames(NAMES_STRANGER);
+  await wait(3600);
+  const picked=namesEl.children[0];
+  if(picked) picked.classList.add('picked');
+  await wait(2600);
+
+  // —— 换一个位置 ——
+  if(!alive()){ RUNNING=false; return; }
+  namesEl.innerHTML='';
+  CUR=3; USED=['stranger','history'];
+  document.querySelector('#reframe .tag').textContent='机器 · 换位置（多年以后）';
+  rbody.textContent='';          // 先清掉上一段画面，避免"新标签+旧内容"空一拍
+  renderScale(false);
+  await showSub('同一句话，换一个位置。', 3200);
+  await streamInto(rbody, SCENE_HISTORY, 36);
+  showNames(NAMES_HISTORY);
+  await wait(3600);
+
+  // —— 看对照 ——
+  renderScale(true);
+  await wait(1400);
+  await openCompare();
+  await wait(2200);
+  await showSub('五个位置，<span class="em">五个不同的结论</span>。<br>不是五种说法同一个道理。', 5600);
+  cmpEl.classList.remove('on');
+  await wait(1400);
+
+  // —— 合上 ——
+  if(!alive()){ RUNNING=false; return; }
+  await showSub('你说完了，就按住"合上"。', 3200);
+  for(let p=0;p<=100;p+=2){
+    if(!alive()){ RUNNING=false; return; }
+    sealFill.style.width=p+'%';
+    await wait(22);
+  }
+  await wait(500);
+  sealFill.style.width='0%';
+  inputEl.style.display='none';
+  hintEl.style.display='none';
+  sealedEl.style.display='block';
+  await wait(900);
+  await showSub('合上之后不能再续。<br>它也不会记得你 —— 换一张卡，就是重新认识。', 5600);
+
+  // —— 结尾 ——
+  await wait(900);
+  outroEl.classList.add('on');
+  await wait(6000);
+  RUNNING=false;
+}
+
+/* —— 控制 —— */
+let timer=null, t0=0;
+function startClock(){
+  t0=performance.now();
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    if(paused) return;
+    const s=Math.floor((performance.now()-t0)/1000);
+    $('clock').textContent = Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  },500);
+}
+
+async function run(){
+  // 用"代次"隔离：旧的 play() 发现代次变了就自己退出，
+  // 不靠固定延时猜它什么时候停——那会让两个实例叠加执行。
+  GEN++;
+  const mine=GEN;
+  cancelled=true;
+  // 等旧实例真正退出（它在每个 await 点都会检查代次）
+  for(let i=0;i<40;i++){
+    if(!RUNNING) break;
+    await new Promise(r=>setTimeout(r,50));
+  }
+  if(mine!==GEN) return;          // 期间又点了一次重播，让更新的那次接管
+  cancelled=false; paused=false;
+  startClock();
+  play(mine);
+}
+
+$('replay').addEventListener('click', run);
+$('hideBtn').addEventListener('click', ()=>{
+  $('ctl').classList.add('hide');
+  $('badge').classList.add('hide');
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='h'||e.key==='H'){
+    $('ctl').classList.toggle('hide');
+    $('badge').classList.toggle('hide');
+  }
+  if(e.code==='Space'){ e.preventDefault(); paused=!paused; }
+  if(e.key==='r'||e.key==='R') run();
+});
+
+run();
+</script>
+</body>
+</html>

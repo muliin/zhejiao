@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>折角 · 视频封面 1440×1080（4:3）</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#0b0a0e}
+  #cover{
+    position:relative;width:1440px;height:1080px;overflow:hidden;
+    background:radial-gradient(ellipse 130% 95% at 16% 6%, #241f2b 0%, #141318 45%, #0b0a0e 100%);
+    font-family:"Songti SC","Noto Serif CJK SC","STSong",Georgia,serif;
+    color:#d8d2c6;
+  }
+  /* 折面 */
+  #fold-paper{
+    position:absolute;right:-300px;top:-340px;width:1300px;height:1600px;
+    background:linear-gradient(135deg,#2a2531 0%,#1a171f 45%,#0e0d12 100%);
+    transform:rotate(-24deg);transform-origin:center;
+    box-shadow:0 0 120px 40px rgba(0,0,0,.6) inset;
+  }
+  /* 折痕的光 */
+  #fold-line{
+    position:absolute;right:-220px;top:620px;width:1400px;height:2px;
+    background:linear-gradient(90deg,transparent 0%,rgba(232,200,154,.15) 12%,#f0d3a4 48%,rgba(232,200,154,.15) 86%,transparent 100%);
+    transform:rotate(-24deg);transform-origin:center;
+    box-shadow:0 0 18px 3px rgba(240,211,164,.55),0 0 70px 18px rgba(232,200,154,.18);
+  }
+  #glow{
+    position:absolute;right:40px;top:540px;width:820px;height:400px;
+    background:radial-gradient(ellipse at center,rgba(232,200,154,.16) 0%,transparent 65%);
+    filter:blur(6px);transform:rotate(-24deg);
+  }
+  .dust{position:absolute;border-radius:50%;background:#f2d9b0;pointer-events:none}
+  #vig{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse 78% 78% at 50% 50%,transparent 40%,rgba(0,0,0,.55) 100%)}
+
+  /* 文字 */
+  #text{position:absolute;left:96px;top:230px;z-index:5}
+  .t1{font-size:128px;letter-spacing:24px;text-indent:24px;line-height:1;
+      color:#f0ead9;text-shadow:0 6px 40px rgba(0,0,0,.55)}
+  .t2{margin-top:44px;font-size:40px;line-height:1.85;color:#cfc7b6;letter-spacing:2px}
+  .t2 .em{color:#e6c79b}
+  .t3{margin-top:56px;font-size:21px;letter-spacing:5px;color:#8b8478}
+  .t4{position:absolute;left:96px;bottom:88px;font-size:20px;letter-spacing:4px;color:#6f6960}
+
+  #badge{position:absolute;right:76px;bottom:88px;text-align:right;z-index:5}
+  #badge .l1{font-size:23px;letter-spacing:5px;color:#b7ab95}
+  #badge .l2{margin-top:12px;font-size:16px;letter-spacing:3px;color:#6f6960}
+</style>
+</head>
+<body>
+<div id="cover">
+  <div id="fold-paper"></div>
+  <div id="glow"></div>
+  <div id="fold-line"></div>
+
+  <div id="text">
+    <div class="t1">折　角</div>
+    <div class="t2">它不讨好你。<br>它只把你的话<span class="em">折一个角</span>。</div>
+    <div class="t3">一个不会安慰你的 AI</div>
+  </div>
+
+  <div id="badge">
+    <div class="l1">五个位置 · 五个结论</div>
+    <div class="l2">名字，永远由你自己起</div>
+  </div>
+  <div class="t4">说完，就合上</div>
+
+  <div id="vig"></div>
+</div>
+
+<script>
+(function(){
+  const cover = document.getElementById('cover');
+  // 沿折痕撒灰：越靠近线越亮
+  for(let i=0;i<130;i++){
+    const d=document.createElement('div');
+    d.className='dust';
+    const x = 560 + Math.random()*880;
+    const y = 200 + Math.random()*800;
+    const dist = Math.abs((y-620) - Math.tan(-24*Math.PI/180)*(x-1000));
+    const near = Math.max(0, 1 - dist/240);
+    const r = 1 + Math.random()*2.2;
+    d.style.cssText = `left:${x}px;top:${y}px;width:${r}px;height:${r}px;`
+      + `opacity:${(0.06 + near*(0.35+Math.random()*0.45)).toFixed(3)};`
+      + `box-shadow:0 0 ${6+near*14}px rgba(242,217,176,${(0.25+near*0.5).toFixed(2)})`;
+    cover.appendChild(d);
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>折角 · 一句话折个角</title>
+<style>
+  :root{
+    /* 月光（默认） */
+    --bg:#141318; --bg2:#1c1a22; --text:#d8d2c6; --muted:#7e7870;
+    --accent:#c7b393; --accent2:#868092; --card:rgba(255,255,255,.04); --card-solid:#15151b; --tl-bg:rgba(14,14,18,.82);
+    --compare-bg:rgba(14,13,18,.88);
+    --line:rgba(255,255,255,.09);
+    --bg-top:#221d2b;
+    --glow:rgba(199,179,147,.35);
+    --shadow:0 14px 40px rgba(0,0,0,0);
+    --vignette:rgba(0,0,0,.4);
+    --star:#fff;
+    --pick:rgba(199,179,147,.12);
+    --settle:rgba(199,179,147,.12);
+    --fx:rgba(235,225,205,.4);
+    --fx2:rgba(235,225,205,.14);
+  }
+  body.light{
+    /* 纸墨（更黄、压暗） */
+    --bg:#e9dec2; --bg2:#dfd3b2; --text:#33302a; --muted:#7d7460;
+    --accent:#9c4a30; --accent2:#5a6b78; --card:rgba(60,50,30,.05); --card-solid:#f3ead7; --tl-bg:rgba(243,234,215,.9);
+    --compare-bg:rgba(233,222,194,.9);
+    --line:rgba(60,50,30,.15);
+    --bg-top:#efe6cf;
+    --glow:rgba(156,74,48,.28);
+    --shadow:0 14px 40px rgba(80,60,30,.12);
+    --vignette:rgba(110,90,50,.14);
+    --star:rgba(55,45,28,.32);
+    --pick:rgba(156,74,48,.09);
+    --settle:rgba(156,74,48,.12);
+    --fx:rgba(90,75,50,.4);
+    --fx2:rgba(90,75,50,.16);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1200px 700px at 50% -10%, var(--bg-top) 0%, var(--bg) 55%);
+    color:var(--text);
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    overflow:hidden; user-select:none;
+  }
+  .serif{font-family:"Songti SC","Noto Serif CJK SC","STSong",Georgia,serif}
+  /* 顶栏 */
+  header{
+    position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;
+    justify-content:space-between;padding:0 22px;z-index:20;
+    border-bottom:1px solid var(--line); backdrop-filter:blur(8px);
+  }
+  header .logo{font-size:15px;letter-spacing:2px;color:var(--muted)}
+  header .logo b{color:var(--accent);font-weight:600}
+  .tabs{display:flex;gap:6px}
+  .tab{
+    padding:6px 16px;border-radius:99px;border:1px solid var(--line);
+    color:var(--muted);cursor:pointer;font-size:13px;transition:.25s;background:transparent;
+  }
+  .tab.on{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:600}
+  .mode{margin-left:8px;padding:6px 16px;border-radius:99px;border:1px solid var(--line);color:var(--muted);cursor:pointer;font-size:13px;transition:.4s;background:transparent}
+  .mode:hover{color:var(--accent);border-color:var(--accent)}
+  .star{position:absolute;width:2px;height:2px;background:var(--star);border-radius:50%}
+
+  /* 主舞台：整体上移，给下方的画面区和折叠栈留出空间 */
+  #stage{position:fixed;inset:0 0 34vh 0;display:flex;align-items:center;justify-content:center}
+  #stars{position:fixed;inset:0;opacity:0;transition:opacity 2s;pointer-events:none}
+  #stars.show{opacity:1}
+  #vignette{position:fixed;inset:0;pointer-events:none;z-index:90;background:radial-gradient(ellipse at 50% 42%, transparent 55%, var(--vignette) 100%)}
+  #grain{position:fixed;inset:0;pointer-events:none;z-index:91;opacity:.045;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+  /* 镜头背景：每根透镜一层极淡的氛围 */
+  #lensbg{position:fixed;inset:0;pointer-events:none;z-index:0}
+  .fx{position:absolute;inset:0;opacity:0;transition:opacity 1.6s;pointer-events:none}
+  .fxm{background:radial-gradient(72% 34% at 50% 68%, var(--fx2), transparent 74%)}
+  .fxs{background-image:radial-gradient(var(--fx) 1px, transparent 1.6px);background-size:130px 130px;animation:drift 22s linear infinite}
+  .fxh{background:linear-gradient(to bottom, transparent 58%, var(--fx2) 67%, var(--fx) 69.4%, var(--fx) 70.1%, var(--fx2) 71.8%, transparent 80%),linear-gradient(to bottom, transparent 70%, rgba(120,108,86,.07) 71.4%, rgba(120,108,86,.015) 100%)}
+  .fxd{background:radial-gradient(78% 62% at 16% 26%, var(--fx2), transparent 64%),radial-gradient(56% 48% at 86% 74%, var(--fx2), transparent 66%)}
+  @keyframes drift{from{background-position:0 0}to{background-position:130px 46px}}
+  body[data-lens="mirror"] .fxm{opacity:1}
+  body[data-lens="stranger"] .fxs{opacity:.55}
+  body[data-lens="culture"] .fxh{opacity:1}
+  body[data-lens="history"] .fxd{opacity:1}
+  body[data-lens="cosmic"] #stars{opacity:1}
+
+  /* 距离杆：已由中间那条横排刻度取代，保留 DOM 作为切换逻辑的载体但不显示 */
+  #lensbar{display:none !important}
+  .lens{
+    width:9px;height:9px;border-radius:50%;background:var(--muted);cursor:pointer;
+    transition:.25s;position:relative;
+  }
+  .lens.on{background:var(--accent);box-shadow:0 0 10px var(--glow)}
+  .lens span{
+    position:absolute;left:20px;top:50%;transform:translateY(-50%);
+    white-space:nowrap;font-size:12px;color:var(--muted);letter-spacing:1px;
+    transition:.2s;
+  }
+  .lens.on span{color:var(--accent)}
+  .lens .desc{font-size:10px;color:var(--muted)}
+
+  /* 名字档案：本次会话给过的名字 */
+  #named{position:fixed;left:26px;top:72px;z-index:14;max-width:230px}
+  .nlabel{font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{padding:4px 10px;border-radius:99px;border:1px solid var(--line);font-size:12px;color:var(--accent);background:var(--card);opacity:0;transform:translateY(6px);transition:.6s}
+  .chip.show{opacity:1;transform:none}
+
+  /* 情绪时间轴（右侧卡片栏）：默认折叠成右边缘一条窄把手。
+     打开产品后第一个动作应该是"说话"，不是"选择"；旧卡片要能回，但不主动招揽。 */
+  #timeline{
+    position:fixed;right:-230px;top:56px;bottom:0;width:230px;z-index:8;
+    padding:16px 14px;border-left:1px solid var(--line);background:var(--tl-bg);
+    overflow-y:auto;backdrop-filter:blur(8px);
+    transition:right .34s cubic-bezier(.4,0,.2,1);
+  }
+  #timeline.open{right:0}
+  /* 把手：折叠时贴在右边缘，竖排两个字 */
+  #tl-handle{
+    position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:9;
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    padding:14px 7px;border:1px solid var(--line);border-right:none;
+    border-radius:9px 0 0 9px;background:var(--tl-bg);backdrop-filter:blur(8px);
+    color:var(--muted);font-size:11px;letter-spacing:2px;writing-mode:vertical-rl;
+    cursor:pointer;opacity:.5;transition:opacity .25s,color .25s;
+    user-select:none;-webkit-user-select:none;
+  }
+  #tl-handle:hover{opacity:1;color:var(--text)}
+  #tl-handle.hide{opacity:0;pointer-events:none}
+  /* 收起：在面板头部，和"＋"并排 */
+  #tl-close{
+    width:26px;height:26px;border-radius:99px;border:1px solid var(--line);
+    background:transparent;color:var(--muted);font-size:14px;line-height:1;
+    cursor:pointer;transition:.25s;
+  }
+  #tl-close:hover{border-color:var(--accent2);color:var(--text)}
+  .tl-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px}
+  .tl-head span{font-size:10px;letter-spacing:2px;color:var(--muted);flex:1}
+  .tl-acts{display:flex;gap:6px;flex:0 0 auto}
+  #tl-new{width:26px;height:26px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--accent);font-size:16px;line-height:1;cursor:pointer;transition:.25s}
+  #tl-new:hover{border-color:var(--accent)}
+  #tl-list{position:relative;padding-left:14px}
+  #tl-list:before{content:'';position:absolute;left:3px;top:6px;bottom:6px;width:1px;background:var(--line)}
+  .tl-node{position:relative;padding:8px 0 12px 12px;cursor:pointer}
+  .tl-node:before{content:'';position:absolute;left:-14px;top:14px;width:7px;height:7px;border-radius:99px;background:var(--line);transition:.25s}
+  .tl-node.on:before{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .tl-node .nm{font-size:13px;color:var(--text);line-height:1.4;word-break:break-all}
+  .tl-node .dt{font-size:10px;color:var(--muted);margin-top:2px}
+  .tl-node .nn{font-size:11px;color:var(--accent);margin-top:5px;line-height:1.5}
+  .tl-node .del{
+    float:right;opacity:0;color:var(--muted);font-size:14px;line-height:1;
+    padding:2px 7px;margin:-2px -4px 0 0;border-radius:5px;transition:opacity .2s,color .2s;
+    cursor:pointer;position:relative;overflow:hidden;
+    user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;
+  }
+  .tl-node:hover .del{opacity:.55}
+  .tl-node .del:hover{opacity:1;color:var(--accent)}
+  .tl-node .del .dfill{
+    position:absolute;left:0;top:0;bottom:0;width:0%;
+    background:var(--accent);opacity:.35;pointer-events:none;
+  }
+  .tl-node .del .dx{position:relative;pointer-events:none}
+
+  /* 情绪物体 */
+  #object{
+    position:relative;z-index:10;max-width:440px;padding:26px 30px;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    box-shadow:var(--shadow);
+    transition:transform .9s cubic-bezier(.2,.8,.2,1), opacity .9s, filter .9s, box-shadow .9s;
+    text-align:center;cursor:default;
+  }
+  #object .who{font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:12px}
+  #object .txt{font-size:19px;line-height:1.9}
+  #object.empty{min-width:min(440px,86vw);min-height:150px;display:flex;flex-direction:column;justify-content:center}
+  #object.empty .txt{color:var(--muted);font-size:17px;line-height:1.6}
+  #object .txt .hi{color:var(--accent)}
+
+  /* 折射卡 & 名字卡 */
+  #cards{position:fixed;left:50%;bottom:19vh;transform:translateX(-50%);width:min(92vw,640px);z-index:12}
+  .reframe{
+    background:var(--card-solid);border:1px solid var(--line);border-radius:12px;
+    padding:16px 20px;margin-bottom:14px;font-size:15px;line-height:1.7;
+    opacity:0;transform:translateY(10px);transition:.9s;
+    max-height:52vh;overflow-y:auto;
+  }
+  .reframe.show{opacity:1;transform:none}
+  .reframe .tag{font-size:10px;letter-spacing:2px;color:var(--accent2);margin-bottom:6px}
+  #reframe > div:last-child{white-space:pre-line;line-height:1.9}
+  .names{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  .name{
+    padding:14px 22px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card);cursor:pointer;transition:.25s;font-size:16px;
+    opacity:0;transform:translateY(14px);
+  }
+  .name.show{opacity:1;transform:none}
+  .name:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .name .wm{display:block;font-size:11px;color:var(--muted);margin-top:6px;font-weight:400}
+  .name.picked{border-color:var(--accent);background:var(--pick);color:var(--accent)}
+  #settle{
+    position:fixed;left:50%;top:44%;transform:translateX(-50%);
+    color:var(--accent);font-size:15px;letter-spacing:1px;opacity:0;transition:1.2s;z-index:11;
+  }
+  #settle.show{opacity:1}
+
+  /* 刻度：五个位置横排，也是唯一的切换入口。
+     走过的点亮，当前实心，没去过的留空、可点击前往。 */
+  #scale{
+    width:min(92vw,640px);margin:0 auto 16px;display:none;
+    align-items:center;justify-content:center;gap:0;
+  }
+  #scale.on{display:flex}
+  .tick{
+    display:flex;flex-direction:column;align-items:center;gap:7px;
+    padding:4px 14px;position:relative;cursor:pointer;
+  }
+  .tick.been{cursor:default}
+  .tick .dot{
+    width:7px;height:7px;border-radius:50%;
+    border:1px solid var(--line);background:transparent;transition:.3s;
+  }
+  .tick.been .dot{border-color:var(--accent2);background:var(--accent2);opacity:.55}
+  .tick.now .dot{border-color:var(--accent);background:var(--accent);opacity:1;
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent)}
+  .tick .tn{font-size:10px;letter-spacing:.5px;color:var(--muted);opacity:.45;transition:.3s;white-space:nowrap}
+  .tick.been .tn{opacity:.8}
+  .tick.now .tn{color:var(--accent);opacity:1}
+  .tick:not(.been):hover .dot{border-color:var(--accent);transform:scale(1.3)}
+  .tick:not(.been):hover .tn{color:var(--text);opacity:1}
+  /* 连接线：把五个点串成一条"脊" */
+  .tick::before{
+    content:'';position:absolute;top:11px;left:0;width:50%;height:1px;
+    background:var(--line);opacity:.45;
+  }
+  .tick::after{
+    content:'';position:absolute;top:11px;right:0;width:50%;height:1px;
+    background:var(--line);opacity:.45;
+  }
+  .tick:first-child::before,.tick:last-child::after{display:none}
+  /* 看对照：挂在刻度右端，低调 */
+  #cmp-open{
+    margin-left:16px;font-size:10px;color:var(--muted);opacity:.5;
+    letter-spacing:.5px;cursor:pointer;transition:.25s;white-space:nowrap;
+    border:none;background:transparent;padding:4px 2px;
+  }
+  #cmp-open:hover{opacity:1;color:var(--accent2)}
+
+  /* 对照层：点刻度召出五句点题，平时不占空间 */
+  #compare{
+    position:fixed;inset:0;z-index:40;display:none;
+    align-items:center;justify-content:center;
+    background:var(--compare-bg);backdrop-filter:blur(10px);
+  }
+  #compare.on{display:flex}
+  .cmp-box{width:min(92vw,620px);max-height:76vh;overflow-y:auto;padding:4px}
+  .cmp-row{
+    display:flex;gap:16px;align-items:baseline;padding:15px 4px;
+    border-bottom:1px solid var(--line);opacity:0;transform:translateY(10px);
+    transition:.5s;
+  }
+  .cmp-row.show{opacity:1;transform:none}
+  .cmp-row:last-child{border-bottom:none}
+  .cmp-row .cl{flex:0 0 70px;text-align:right;font-size:12px;color:var(--accent2);letter-spacing:.5px}
+  .cmp-row .cp{flex:1;font-size:15px;line-height:1.75;color:var(--text)}
+  .cmp-row.unvisited .cp{color:var(--muted);opacity:.4}
+  .cmp-tip{text-align:center;font-size:11px;color:var(--muted);margin-top:18px;letter-spacing:1px}
+
+  .lens.spent{opacity:.32;cursor:default}
+  .lens.spent:hover{transform:none;border-color:var(--line)}
+
+  /* 合上：和「推开」对称，放在输入框右侧。按住 1.5s 才生效。 */
+  #seal{
+    position:relative;overflow:hidden;background:transparent;color:var(--muted);
+    border:1px solid var(--line);border-radius:14px;padding:0 20px;font-size:15px;
+    cursor:pointer;letter-spacing:.5px;transition:.2s;user-select:none;flex:0 0 auto;
+    -webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;
+  }
+  #seal:hover{color:var(--text);border-color:var(--accent2)}
+  #seal .fill{
+    position:absolute;left:0;top:0;bottom:0;width:0%;
+    background:var(--accent);opacity:.2;pointer-events:none;
+  }
+  #seal .sl{position:relative;pointer-events:none}
+  #sealed-note{
+    position:fixed;left:50%;bottom:4vh;transform:translateX(-50%);
+    width:min(90vw,560px);text-align:center;padding:13px 16px;border-radius:12px;
+    border:1px dashed var(--line);color:var(--muted);font-size:13px;
+    letter-spacing:1px;z-index:16;display:none;
+  }
+
+  /* 输入 */
+  #input{
+    position:fixed;left:50%;bottom:5vh;transform:translateX(-50%);
+    display:flex;gap:10px;z-index:16;width:min(92vw,760px);
+  }
+  #input input{
+    flex:1;background:var(--card-solid);border:1px solid var(--line);border-radius:14px;
+    padding:18px 22px;color:var(--text);font-size:17px;line-height:1.5;outline:none;
+    transition:border-color .25s, box-shadow .25s;
+  }
+  #input input::placeholder{color:var(--muted);opacity:.6}
+  #input input:focus{
+    border-color:var(--accent2);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--accent2) 12%, transparent);
+  }
+  #input button{
+    background:var(--accent);color:var(--bg);border:none;border-radius:14px;
+    padding:0 26px;font-size:16px;cursor:pointer;font-weight:600;flex:0 0 auto;
+  }
+  .hint{position:fixed;bottom:calc(5vh + 82px);left:50%;transform:translateX(-50%);font-size:11px;color:var(--muted);letter-spacing:1px;z-index:17}
+
+  /* B：透镜房 */
+  #viewB{position:fixed;inset:0;display:none;align-items:center;justify-content:center;gap:18px;padding:80px 20px 140px}
+  .room{
+    flex:1;max-width:280px;height:62vh;border-radius:16px;border:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;padding:20px;text-align:center;background:var(--card);transition:.3s;
+  }
+  .room:hover{transform:translateY(-4px);border-color:var(--accent)}
+  .room .glyph{font-size:44px;opacity:.85}
+  .room .rn{font-size:18px;letter-spacing:2px;color:var(--accent)}
+  .room .rd{font-size:12px;color:var(--muted);line-height:1.7}
+  .room .rq{font-size:14px;margin-top:8px}
+
+  /* C：卡片流 */
+  #viewC{position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;padding:80px 20px}
+  .flow{width:min(90vw,480px);padding:18px 22px;border-radius:14px;border:1px solid var(--line);background:var(--card);font-size:15px;line-height:1.7}
+  .flow.me{align-self:flex-end;border-color:var(--accent2)}
+  .flow .t{font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:8px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">折角 <b>· 一句话折个角</b></div>
+  <div class="tabs">
+    <div class="mode" id="themeBtn">月光</div>
+  </div>
+</header>
+
+<div id="stars"></div>
+<div id="lensbg"><div class="fx fxm"></div><div class="fx fxs"></div><div class="fx fxh"></div><div class="fx fxd"></div></div>
+<div id="vignette"></div>
+<div id="grain"></div>
+<div id="stage">
+  <div id="lensbar">
+    <div class="lens on" data-i="0"><span>镜子</span></div>
+    <div class="lens" data-i="1"><span>异乡客</span></div>
+    <div class="lens" data-i="2"><span>彼岸</span></div>
+    <div class="lens" data-i="3"><span>多年以后</span></div>
+    <div class="lens" data-i="4"><span>高处</span></div>
+  </div>
+
+  <div id="object">
+    <div class="who">你刚刚说的</div>
+    <div class="txt" id="objtxt"></div>
+  </div>
+  <div id="settle" class="serif"></div>
+</div>
+
+<div id="cards">
+  <div id="scale"></div>
+  <div class="reframe" id="reframe">
+    <div class="tag">机器</div>
+    <div></div>
+  </div>
+  <div class="names" id="names"></div>
+</div>
+
+<div id="compare"><div class="cmp-box" id="cmp-box"></div></div>
+
+<div id="tl-handle" title="看看以前的卡片">卡片</div>
+<div id="timeline">
+  <div class="tl-head">
+    <span>折角卡片</span>
+    <div class="tl-acts">
+      <button id="tl-new" title="新建一张">＋</button>
+      <button id="tl-close" title="收起">›</button>
+    </div>
+  </div>
+  <div id="tl-list"></div>
+</div>
+
+<div id="named"><div class="nlabel">你给过的名字</div><div class="chips" id="chips"></div></div>
+
+<div id="input">
+  <input id="in" placeholder="（在这儿说）">
+  <button id="go">推开</button>
+  <button id="seal" title="按住，合上这张卡片"><span class="fill"></span><span class="sl">合上</span></button>
+</div>
+<div id="sealed-note">这张卡片已合上</div>
+<div class="hint">说完就忘 · 点一张名字卡，把它安放回去</div>
+
+<!-- B/C 两个静态示意视图已下线：它们和主视图（刻度 / 时间轴 / 透镜背景）重复。 -->
+
+<script>
+  const $=id=>document.getElementById(id);
+  const obj=$('object'), objtxt=$('objtxt');
+  const reframe=$('reframe');
+  const namesBox=$('names');
+  const settle=$('settle');
+  const stars=$('stars');
+  const stage=$('stage');
+  const cards=$('cards');
+  const viewB=null, viewC=null;
+  const lensEls=[...document.querySelectorAll('.lens')];
+
+  // 墨点
+  for(let i=0;i<90;i++){const s=document.createElement('div');s.className='star';s.style.cssText=`opacity:${.2+Math.random()*.5};left:${Math.random()*100}%;top:${Math.random()*100}%`;stars.appendChild(s);}
+
+  const LENS=['mirror','stranger','culture','history','cosmic'];
+  const LENS_NAMES=['镜子','异乡客','彼岸','多年以后','高处'];
+  const SCALE=[1,0.88,0.76,0.64,0.52], OP=[1,.9,.78,.64,.5], BLUR=[0,1,2,3,4];
+  let phase='opening', cur=0;
+  let CARD='';
+  let SEALED=false;
+  let LEFT=LENS.slice();      // 还没去过的位置
+  let USED=[];                // 去过的位置
+  let POINTS=[];              // [{lens, point, full}]
+
+  // ---- 合上状态 ----
+  function applySealed(on, at){
+    SEALED=!!on;
+    $('input').style.display = SEALED ? 'none' : 'flex';
+    $('sealed-note').style.display = SEALED ? 'block' : 'none';
+    document.querySelector('.hint').style.display = SEALED ? 'none' : 'block';
+    if(SEALED && at){
+      const d=new Date(at*1000);
+      $('sealed-note').textContent='这张卡片已合上 · '+(d.getMonth()+1)+'月'+d.getDate()+'日';
+    }
+  }
+
+  // ---- 刻度：五个位置横排，也是唯一的切换入口 ----
+  function renderScale(){
+    const box=$('scale'); if(!box) return;
+    if(!USED.length){ box.classList.remove('on'); box.innerHTML=''; return; }
+    box.classList.add('on');
+    box.innerHTML='';
+    LENS.forEach((id,i)=>{
+      const t=document.createElement('div');
+      const been=USED.includes(id);
+      t.className='tick'+(been?' been':'')+(id===LENS[cur]?' now':'');
+      t.innerHTML='<span class="dot"></span><span class="tn">'+esc(LENS_NAMES[i])+'</span>';
+      const p=POINTS.find(x=>x.lens===id);
+      if(p&&p.point) t.title=p.point;
+      else if(!been && !SEALED) t.title='去这个位置看看';
+      if(!been) t.addEventListener('click',()=>gotoLens(i));
+      box.appendChild(t);
+    });
+    const btn=document.createElement('button');
+    btn.id='cmp-open';
+    btn.textContent = LEFT.length ? ('看对照 · 还剩 '+LEFT.length) : '看对照 · 五个都去过了';
+    btn.addEventListener('click',e=>{ e.stopPropagation(); openCompare(); });
+    box.appendChild(btn);
+  }
+  function setLensState(used, left, points){
+    if(Array.isArray(used)) USED=used.slice();
+    if(Array.isArray(left)) LEFT=left.slice();
+    if(Array.isArray(points)) POINTS=points.slice();
+    renderScale(); syncLensBar();
+  }
+
+  // ---- 对照层：点刻度召出五句点题，平时不占空间 ----
+  function openCompare(){
+    if(!USED.length) return;
+    const box=$('cmp-box'); box.innerHTML='';
+    LENS.forEach((id,i)=>{
+      const p=POINTS.find(x=>x.lens===id);
+      const row=document.createElement('div');
+      row.className='cmp-row'+(p?'':' unvisited');
+      row.innerHTML='<div class="cl">'+esc(LENS_NAMES[i])+'</div>'
+                   +'<div class="cp">'+esc(p&&p.point?p.point:'还没去过')+'</div>';
+      box.appendChild(row);
+      setTimeout(()=>row.classList.add('show'),60+i*70);
+    });
+    const tip=document.createElement('div');
+    tip.className='cmp-tip';
+    tip.textContent=LEFT.length?('还有 '+LEFT.length+' 个位置可以去 · 点一下收起'):'五个位置都去过了 · 点一下收起';
+    box.appendChild(tip);
+    $('compare').classList.add('on');
+  }
+  function closeCompare(){ $('compare').classList.remove('on'); }
+  function syncLensBar(){
+    lensEls.forEach((l,j)=>{
+      // 去过的位置一律置灰（包括当前这一个）：它表示"这里已经去过了"，
+      // 不是"当前选中"。选中态由 .on 表达。
+      l.classList.toggle('spent', USED.includes(LENS[j]));
+    });
+  }
+
+  function api(path, body){
+    return fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());
+  }
+
+  function esc(s){ return String(s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function fmtDate(ts){ const d=new Date((ts||0)*1000); return (d.getMonth()+1)+'月'+d.getDate()+'日'; }
+  function clearChips(){ const b=$('chips'); if(b) b.innerHTML=''; }
+
+  async function loadCards(){
+    try{
+      const d=await fetch('/api/cards').then(r=>r.json());
+      renderCards(d.cards||[]);
+    }catch(e){}
+  }
+  function renderCards(list){
+    const box=$('tl-list'); if(!box) return;
+    box.innerHTML='';
+    list.forEach(c=>{
+      const n=document.createElement('div');
+      n.className='tl-node'+(c.id===CARD?' on':'')+(c.sealed?' sealed':'');
+      // 只显示卡片名 + 日期。名字属于那次对话，不在跨卡片的地方聚合。
+      n.innerHTML='<div class="nm">'+esc(c.name)+(c.sealed?' <span style="opacity:.5">· 已合上</span>':'')
+                 +'<span class="del" title="按住，丢掉这张卡片"><span class="dfill"></span><span class="dx">×</span></span></div>'
+                 +'<div class="dt">'+fmtDate(c.updated)+'</div>';
+      n.addEventListener('click',e=>{ if(e.target.closest('.del')) return; selectCard(c); closeTimeline(); });
+      if(!c.sealed) n.addEventListener('dblclick',e=>{ if(e.target.closest('.del')) return; renameCard(c); });
+      bindHold(n.querySelector('.del'), '.dfill', 1200, ()=>deleteCard(c));
+      box.appendChild(n);
+    });
+  }
+
+  // 按住才生效：删除和合上都走这个，松手即取消，不提示。
+  // 用 pointer 事件 + setPointerCapture：按下后指针锁定在这个元素上，
+  // 中途的 mouseleave/子元素抖动不会误取消；setInterval 不受渲染节流影响。
+  function bindHold(btn, fillSel, ms, onDone){
+    if(!btn || btn.dataset.holdBound) return;
+    btn.dataset.holdBound='1';
+    const fill=btn.querySelector(fillSel);
+    let t0=0, timer=0, done=false;
+    function reset(){ clearInterval(timer); timer=0; if(fill) fill.style.width='0%'; t0=0; }
+    function start(e){
+      if(timer) return;
+      e.preventDefault(); e.stopPropagation();
+      try{ btn.setPointerCapture(e.pointerId); }catch(_){}
+      done=false; t0=performance.now();
+      timer=setInterval(()=>{
+        const p=Math.min(1,(performance.now()-t0)/ms);
+        if(fill) fill.style.width=(p*100)+'%';
+        if(p>=1 && !done){ done=true; reset(); onDone(); }
+      },30);
+    }
+    function cancel(e){ if(e) e.stopPropagation(); if(!done) reset(); }
+    btn.addEventListener('pointerdown',start);
+    btn.addEventListener('pointerup',cancel);
+    btn.addEventListener('pointercancel',cancel);
+    btn.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); });
+    btn.addEventListener('contextmenu',e=>e.preventDefault());
+  }
+
+  async function deleteCard(c){
+    await fetch('/api/card/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:c.id})});
+    if(CARD===c.id){
+      // 删掉的是当前这张：回到一张还在的卡，没有就新开一张空的。
+      const list=await fetch('/api/cards').then(r=>r.json()).then(d=>d.cards||[]).catch(()=>[]);
+      const next=list.find(x=>x.id!==c.id);
+      if(next) await selectCard(next);
+      else await newCard();
+    } else {
+      await loadCards();
+    }
+  }
+
+  async function selectCard(c){
+    CARD=c.id;
+    clearChips();
+    (c.names||[]).forEach(x=>addChip(x.word));
+    clearNames(); closeCompare();
+    applySealed(c.sealed, c.sealed_at);
+    setLensState(c.lenses_used||[], c.lenses_left||LENS.slice(), c.points||[]);
+    setObject(c.raw);
+    if(c.last){ reframe.classList.add('show'); setTag('这张卡片'); setText(c.last); phase=c.has_ctx?'awaiting':'opening'; }
+    else { reframe.classList.remove('show'); setText(''); phase='opening'; }
+    await loadCards();
+  }
+  async function newCard(){
+    const d=await fetch('/api/card/new',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>r.json());
+    CARD=d.card.id;
+    clearChips(); clearNames(); closeCompare();
+    applySealed(false);
+    setLensState([], LENS.slice(), []);
+    setObject('');
+    reframe.classList.remove('show'); setText(''); phase='opening';
+    await loadCards();
+    $('in').focus();
+  }
+  async function renameCard(c){
+    const name=prompt('给这张卡片起个名字（它会成为时间轴上的名字）', c.name);
+    if(!name||!name.trim()) return;
+    await fetch('/api/card/rename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:c.id,name:name.trim()})});
+    await loadCards();
+  }
+  async function sse(url, body, handlers){
+    let res;
+    try{ res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+    catch(e){ if(handlers.error) handlers.error('网络错误'); return; }
+    if(!res.body){ if(handlers.error) handlers.error('无响应'); return; }
+    const reader=res.body.getReader();
+    const dec=new TextDecoder();
+    let buf='';
+    while(true){
+      const {done,value}=await reader.read();
+      if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      let idx;
+      while((idx=buf.indexOf('\n\n'))>=0){
+        const chunk=buf.slice(0,idx); buf=buf.slice(idx+2);
+        let ev='message', data='';
+        for(const line of chunk.split('\n')){
+          if(line.startsWith('event:')) ev=line.slice(6).trim();
+          else if(line.startsWith('data:')) data=line.slice(5).trim();
+        }
+        if(handlers[ev] && data){
+          let payload;
+          try{ payload=JSON.parse(data); }catch(e){ continue; }
+          try{ handlers[ev](payload); }catch(e){}
+        }
+      }
+    }
+  }
+  function applyLens(i){
+    cur=i;
+    lensEls.forEach((l,j)=>l.classList.toggle('on',j===i));
+    obj.style.transform=`scale(${SCALE[i]})`; obj.style.opacity=OP[i];
+    obj.style.filter=`blur(${BLUR[i]}px)`;
+    document.body.dataset.lens = LENS[i];
+    syncLensBar();
+  }
+  function setTag(n){ reframe.querySelector('.tag').textContent='机器 · '+n; }
+  function setText(t){ reframe.querySelector('div:last-child').textContent=t; }
+  function clearNames(){ namesBox.innerHTML=''; }
+  function addChip(name){
+    if(!name) return;
+    const c=document.createElement('div');
+    c.className='chip'; c.textContent=name;
+    $('chips').appendChild(c);
+    setTimeout(()=>c.classList.add('show'),30);
+  }
+  function renderNames(list){
+    clearNames();
+    list.forEach((n,i)=>{
+      const d=document.createElement('div');
+      d.className='name'; d.textContent=n;
+      d.addEventListener('click',()=>{ if(phase==='awaiting') reply('对，就是「'+n+'」。'); });
+      namesBox.appendChild(d);
+      setTimeout(()=>d.classList.add('show'),120+i*90);
+    });
+  }
+  function busy(b){
+    $('go').disabled=b; $('go').textContent=b?'正在…':'推开';
+    document.body.style.cursor=b?'progress':'';
+  }
+
+  function setObject(text){
+    const t = (text||'').trim();
+    if(t){ obj.classList.remove('empty'); objtxt.textContent = t; }
+    else { obj.classList.add('empty'); objtxt.textContent = '说一句此刻压着你的话'; }
+  }
+
+  async function open(text){
+    busy(true);
+    setObject(text);
+    obj.style.boxShadow='';
+    settle.classList.remove('show'); settle.textContent='';
+    clearNames(); closeCompare();
+    reframe.classList.add('show');
+    setTag('正在读…'); setText('');
+    let acc='', gotNames=false;
+    await sse('/api/open/stream',{text,card:CARD},{
+      status: s => setTag(s),
+      token: t => { acc+=t; setText(acc); },
+      names: d => {
+        gotNames=true;
+        setTag('换位置（'+d.lens+'）');
+        renderNames(d.names||[]);
+        applyLens(Math.max(0,LENS_NAMES.indexOf(d.lens)));
+        setLensState(d.used, d.left, d.points);
+      },
+      sealed: d => { applySealed(true, d&&d.sealed_at); },
+      error: e => setText('出错了：'+e)
+    });
+    phase = gotNames ? 'awaiting' : 'opening';
+    await loadCards();
+    busy(false);
+  }
+
+  async function reply(text){
+    busy(true);
+    let mode='reframe', acc='';
+    settle.classList.remove('show'); settle.textContent='';
+    reframe.classList.add('show');
+    setTag('在守门…'); setText('');
+    await sse('/api/reply/stream',{text,card:CARD},{
+      status: s => setTag(s),
+      signal: d => {
+        if(d.signal==='return'){
+          mode='settle';
+          settle.textContent='';
+          settle.classList.add('show');
+          reframe.classList.remove('show');
+          clearNames();
+          addChip(d.named);
+          obj.style.boxShadow='0 0 40px '+getComputedStyle(document.body).getPropertyValue('--settle');
+        } else if(d.signal==='offer_seal'){
+          // 它只是问；真正合上要用户按住"合上"
+          mode='reframe';
+          setTag('机器');
+          phase='opening';
+        } else if(d.signal==='switch'){
+          mode='reframe';
+          setTag('机器');
+          phase='opening';
+        } else {
+          mode='reframe';
+          setTag(d.signal==='float'?'守门':'机器');
+        }
+      },
+      token: t => {
+        acc+=t;
+        if(mode==='settle') settle.textContent=acc;
+        else setText(acc);
+      },
+      sealed: d => { applySealed(true, d&&d.sealed_at); },
+      error: e => setText('出错了：'+e)
+    });
+    await loadCards();
+    busy(false);
+  }
+
+  function submit(text){
+    if(!text) return;
+    if(phase==='opening') open(text); else reply(text);
+  }
+  $('go').addEventListener('click',()=>{ const t=$('in').value.trim(); $('in').value=''; submit(t); });
+  $('in').addEventListener('keydown',e=>{ if(e.key==='Enter'){ const t=$('in').value.trim(); $('in').value=''; submit(t); } });
+
+  // 换一个位置。走过的位置留在刻度上（不是把它换掉，这不是 reroll）
+  // 入口只有中间那条刻度；原来的左侧距离杆已隐藏，但仍走同一个函数。
+  async function gotoLens(i){
+    if(SEALED) return;
+    if(USED.includes(LENS[i])) return;        // 每个位置只去一次
+    if(!CARD || phase==='opening') return;    // 还没开口，先说话
+    applyLens(i);
+    clearNames(); closeCompare();
+    setTag('在换位置…'); setText('');
+    let acc='';
+    await sse('/api/lens/stream',{lens:LENS[i],card:CARD},{
+      status: s => setTag(s),
+      token: t => { acc+=t; setText(acc); },
+      names: d => { renderNames(d.names||[]); setLensState(d.used, d.left, d.points); },
+      spent: d => { setTag('这个位置已经去过'); setText(''); },
+      sealed: d => { applySealed(true, d&&d.sealed_at); },
+      done: d => { setTag('换位置（'+((d&&d.lens)||LENS_NAMES[i])+'）'); if(d) setLensState(d.used, d.left, d.points); },
+      error: e => setText('出错了：'+e)
+    });
+    await loadCards();
+  }
+  lensEls.forEach((l,i)=>l.addEventListener('click',()=>gotoLens(i)));
+
+  // 对照层：点背景或按 Esc 收起
+  $('compare').addEventListener('click', closeCompare);
+  document.addEventListener('keydown', e => { if(e.key==='Escape') closeCompare(); });
+
+  // 合上这张卡片：按住 1.5s 才生效；松手即取消，不提示
+  bindHold($('seal'), '.fill', 1500, ()=>{ if(!SEALED && CARD) doSeal(); });
+
+  async function doSeal(){
+    try{
+      const d=await api('/api/card/seal',{id:CARD});
+      if(d && (d.ok||d.already)){
+        applySealed(true, d.card && d.card.sealed_at);
+        clearNames();
+        await loadCards();
+      }
+    }catch(e){}
+  }
+
+  // 视图切换
+  function showView(v){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
+    const main=(v==='A');
+    stage.style.display=main?'flex':'none';
+    cards.style.display=main?'block':'none';
+    $('input').style.display=(main && !SEALED)?'flex':'none';
+    $('sealed-note').style.display=(main && SEALED)?'block':'none';
+    document.querySelector('.hint').style.display=(main && !SEALED)?'block':'none';
+    // 时间轴用 visibility，避免和折叠动画的 transform 打架
+    $('timeline').style.visibility=main?'visible':'hidden';
+    $('tl-handle').style.visibility=main?'visible':'hidden';
+  }
+
+
+  // 明暗
+  const themeBtn=$('themeBtn');
+  themeBtn.addEventListener('click',()=>{
+    document.body.classList.toggle('light');
+    themeBtn.textContent=document.body.classList.contains('light')?'纸墨':'月光';
+  });
+  // 时间轴：默认折叠。入口永远是一张空白的卡——
+  // 打开后第一个动作应该是"说话"，不是"选择"；旧卡片从右边缘那条把手回去。
+  function openTimeline(){
+    $('timeline').classList.add('open');
+    $('tl-handle').classList.add('hide');
+    loadCards();
+  }
+  function closeTimeline(){
+    $('timeline').classList.remove('open');
+    $('tl-handle').classList.remove('hide');
+  }
+  $('tl-handle').addEventListener('click', openTimeline);
+  $('tl-close').addEventListener('click', closeTimeline);
+  // 新建：建完就收起，把焦点交回输入框
+  $('tl-new').addEventListener('click', async()=>{ await newCard(); closeTimeline(); });
+  // 点选一张旧卡后也收起，避免停在"管理列表"的状态
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeTimeline(); });
+  (async function(){
+    await newCard();
+    await loadCards();
+  })();
+</script>
+</body>
+</html>

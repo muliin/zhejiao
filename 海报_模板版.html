@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>折角 · 海报（模板版 1080×1920 9:16）</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#050a16}
+  #poster{
+    position:relative;width:1080px;height:1920px;overflow:hidden;
+    background:
+      radial-gradient(ellipse 95% 50% at 50% 0%, #123268 0%, #0a1a3d 42%, #050a16 100%);
+    font-family:"Songti SC","Noto Serif CJK SC","STSong",Georgia,serif;
+    color:#eef2ff;
+  }
+  #grid{position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(120,170,255,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(120,170,255,.05) 1px, transparent 1px);
+    background-size:80px 80px;
+    mask-image:radial-gradient(ellipse 80% 65% at 50% 42%, #000 30%, transparent 100%);
+    -webkit-mask-image:radial-gradient(ellipse 80% 65% at 50% 42%, #000 30%, transparent 100%);
+  }
+  #head{position:absolute;top:0;left:0;right:0;padding:62px 0 0;text-align:center;z-index:5}
+  #head .h1{font-family:"PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:46px;font-weight:700;letter-spacing:2px;color:#fff}
+  #head .h2{margin-top:14px;font-family:"PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:22px;letter-spacing:3px;color:#9fc3ff}
+  #head .h3{margin-top:8px;font-family:"PingFang SC",sans-serif;
+    font-size:11px;letter-spacing:2px;color:#5f83c8}
+
+  #body{position:absolute;top:250px;left:0;right:0;bottom:210px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:0 84px;text-align:center;z-index:5}
+
+  .brand{font-size:136px;letter-spacing:28px;text-indent:28px;line-height:1;
+    color:#f0ead9;text-shadow:0 8px 40px rgba(0,0,0,.5)}
+  .sub{margin-top:30px;font-size:18px;letter-spacing:7px;color:#7f9fd6;
+    font-family:"PingFang SC",sans-serif}
+
+  .tag{margin-top:96px;font-size:48px;line-height:1.85;letter-spacing:3px;color:#e9e3d6}
+  .tag .em{color:#e6c79b}
+
+  .hr{margin:64px auto;width:280px;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(230,199,155,.65),transparent)}
+
+  .case{font-size:26px;line-height:2;color:#b9c6e6;letter-spacing:1px}
+  .case b{color:#e6c79b;font-weight:400}
+  .punch{margin-top:24px;font-size:29px;line-height:1.9;color:#e6c79b;letter-spacing:1px}
+
+  .lenses{margin-top:86px;font-size:20px;letter-spacing:5px;color:#7f9fd6;
+    font-family:"PingFang SC",sans-serif}
+  .end{margin-top:64px;font-size:42px;line-height:1.8;letter-spacing:3px;color:#f0ead9}
+  .end .c{color:#e6c79b}
+
+  #foot{position:absolute;left:0;right:0;bottom:0;height:196px;
+    border-top:1px solid rgba(120,170,255,.18);
+    display:flex;align-items:center;justify-content:center;gap:36px;
+    font-family:"PingFang SC",sans-serif;font-size:19px;letter-spacing:2px;color:#8fa7d6;z-index:5}
+  #foot .dot{width:5px;height:5px;border-radius:50%;background:#4d6ea8}
+</style>
+</head>
+<body>
+<div id="poster">
+  <div id="grid"></div>
+
+  <div id="head">
+    <div class="h1">知乎黑客松 · 湾区共创季</div>
+    <div class="h2">让你的创意被看见</div>
+    <div class="h3">LET YOUR CREATIVITY BE SEEN</div>
+  </div>
+
+  <div id="body">
+    <div class="brand">折　角</div>
+    <div class="sub">一句话折个角</div>
+
+    <div class="tag">它不讨好你。<br>它只把你的话<span class="em">折一个角</span>，<br>然后让你自己起名字。</div>
+
+    <div class="hr"></div>
+
+    <div class="case">
+      <b>你说</b>：我和最好的朋友闹掰了，我总觉得是我太敏感、太作。<br>
+      <b>它说</b>：有一趟只在夜里绕城的末班车，车尾那排座位写着"太作"。
+    </div>
+    <div class="punch">"太作"不是错，是当地人辨认"谁真的在乎"的记号。</div>
+
+    <div class="lenses">镜子 · 异乡客 · 彼岸 · 多年以后 · 高处</div>
+
+    <div class="end">折过的角，留在原地。<br><span class="c">名字，你自己起。</span></div>
+  </div>
+
+  <div id="foot">
+    <span>知乎黑客松</span><span class="dot"></span><span>中山大学 软件工程学院</span>
+  </div>
+</div>
+</body>
+</html>
